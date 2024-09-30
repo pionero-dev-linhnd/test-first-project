@@ -1,3 +1,5 @@
+import os
+import uvicorn
 from fastapi import FastAPI
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
@@ -9,7 +11,7 @@ class VideoRequest(BaseModel):
 
 def get_download_url(video_url: str) -> str:
     ydl_opts = {
-        'format': 'best',
+        'format': 'm4a/bestaudio/best',
         'noplaylist': True,
     }
 
@@ -24,3 +26,8 @@ def get_video_url(request: VideoRequest):
     if download_url:
         return {"download_url": download_url}
     return {"error": "Failed to retrieve the video download URL"}
+
+# Main block to run the server
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Lấy PORT từ biến môi trường hoặc dùng mặc định là 8000
+    uvicorn.run(app, host="0.0.0.0", port=port)
