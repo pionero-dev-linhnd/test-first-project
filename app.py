@@ -28,7 +28,7 @@ def get_download_url(video_url: str, cookies: str) -> str:
         'format': 'm4a/bestaudio/best',
         'noplaylist': True,
         'cookies': cookies_file,
-        # 'proxy': 'https://114.129.2.82:8081',  # Thay đổi với proxy của bạn
+        'proxy': 'http://171.244.60.55:8080',  # Thay đổi với proxy của bạn
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
     }
 
