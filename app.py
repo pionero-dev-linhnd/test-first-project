@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
 import http.cookiejar
+import urllib.parse 
 
 app = FastAPI()
 
@@ -11,10 +12,13 @@ class VideoRequest(BaseModel):
     video_url: str
 
 def save_cookies_from_string(cookies_string: str, cookies_file: str):
+
+    decoded_cookies = urllib.parse.unquote(cookies_string)
+
     jar = http.cookiejar.CookieJar()
     
     # Phân tách cookies
-    cookies_list = cookies_string.split('; ')
+    cookies_list = decoded_cookies.split('; ')
     for cookie in cookies_list:
         name, value = cookie.split('=', 1)
         # Tạo cookie và thêm vào cookiejar
