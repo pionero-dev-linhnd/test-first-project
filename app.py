@@ -41,6 +41,7 @@ def get_download_url(video_url: str, access_token: str) -> str:
         'noplaylist': True,
         'headers': {
             'Authorization': f'Bearer {access_token}',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.80 Safari/537.36'
         },
         'force_generic_extractor': True,
     }
@@ -61,7 +62,7 @@ def get_download_url(video_url: str, access_token: str) -> str:
 @app.get("/")
 def root():
     auth_url = f"{AUTH_URI}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/youtube.readonly"
-    return auth_url
+    return {"auth_url": auth_url}
 
 @app.get("/get_video_url")
 def get_video_url(code: str, video_url: str):
