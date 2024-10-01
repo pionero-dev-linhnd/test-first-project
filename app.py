@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, HTTPException
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
 import urllib.parse  # Thêm import này
+import time  # Thêm import cho thời gian chờ
 
 app = FastAPI()
 
@@ -22,10 +23,13 @@ def get_download_url(video_url: str, cookies: str) -> str:
     cookies_file = 'cookies.txt'
     save_cookies(cookies, cookies_file)
 
+    # Thay đổi User-Agent và thêm proxy
     ydl_opts = {
         'format': 'm4a/bestaudio/best',
         'noplaylist': True,
         'cookies': cookies_file,
+        # 'proxy': 'https://114.129.2.82:8081',  # Thay đổi với proxy của bạn
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
     }
 
     try:
@@ -47,6 +51,10 @@ def get_video_url(request: VideoRequest, req: Request):
         raise HTTPException(status_code=400, detail="No cookies provided")
 
     download_url = get_download_url(request.video_url, cookies_header)
+    
+    # Thêm thời gian chờ trước khi trả kết quả
+    time.sleep(5)  # Chờ 5 giây trước khi xử lý yêu cầu tiếp theo
+
     if download_url:
         return {"download_url": download_url}
     raise HTTPException(status_code=404, detail="Failed to retrieve the video download URL")
