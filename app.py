@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
 
@@ -9,10 +9,11 @@ app = FastAPI()
 class VideoRequest(BaseModel):
     video_url: str
 
-def get_download_url(video_url: str) -> str:
+def get_download_url(video_url: str, cookies: str) -> str:
     ydl_opts = {
         'format': 'm4a/bestaudio/best',
         'noplaylist': True,
+        'cookies': cookies,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -21,8 +22,11 @@ def get_download_url(video_url: str) -> str:
     return video_url
 
 @app.post("/get_video_url/")
-def get_video_url(request: VideoRequest):
-    download_url = get_download_url(request.video_url)
+def get_video_url(request: VideoRequest, req: Request):
+    cookies_header = req.headers.get('cookies')
+    print(cookies_header)
+
+    download_url = get_download_url(request.video_url, cookies_header)
     if download_url:
         return {"download_url": download_url}
     return {"error": "Failed to retrieve the video download URL"}
