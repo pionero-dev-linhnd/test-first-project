@@ -28,9 +28,16 @@ def get_download_url(video_url: str, cookies: str) -> str:
         'cookies': cookies_file,
     }
 
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(video_url, download=False)
-        video_url = info.get('url', None)
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+            video_url = info.get('url', None)
+            if not video_url:
+                raise ValueError("Could not find video URL.")
+    except Exception as e:
+        print(f"Error extracting video URL: {str(e)}")  # In thông báo lỗi
+        return None
+    
     return video_url
 
 @app.post("/get_video_url/")
