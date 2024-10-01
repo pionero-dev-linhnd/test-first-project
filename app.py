@@ -1,40 +1,54 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+import requests
+from fastapi import FastAPI, HTTPException
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
-import urllib.parse  # Thêm import này
-import time  # Thêm import cho thời gian chờ
 
 app = FastAPI()
 
-class VideoRequest(BaseModel):
-    video_url: str
+from dotenv import load_dotenv
 
-def save_cookies(cookies_string: str, cookies_file: str):
-    # Giải mã cookies
-    decoded_cookies = urllib.parse.unquote(cookies_string)
+load_dotenv()
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+AUTH_URI = os.getenv("AUTH_URI")
+TOKEN_URI = os.getenv("TOKEN_URI")
+
+def get_access_token(code: str) -> str:
+    data = {
+        'code': code,
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'redirect_uri': REDIRECT_URI,
+        'grant_type': 'authorization_code',
+    }
+
+    response = requests.post(TOKEN_URI, data=data)
+    response_data = response.json()
+
+    if 'access_token' in response_data:
+        return response_data['access_token']
     
-    # Lưu cookies vào tệp
-    with open(cookies_file, 'w') as f:
-        f.write(decoded_cookies)
+    raise ValueError("Failed to obtain access token")
 
-def get_download_url(video_url: str, cookies: str) -> str:
-    cookies_file = 'cookies.txt'
-    save_cookies(cookies, cookies_file)
-
-    # Thay đổi User-Agent và thêm proxy
+def get_download_url(video_url: str, access_token: str) -> str:
+    print(f'Bearer {access_token}')
     ydl_opts = {
-        'format': 'm4a/bestaudio/best',
+        'quiet': True,
         'noplaylist': True,
-        'cookies': cookies_file,
-        'proxy': 'http://171.244.60.55:8080',  # Thay đổi với proxy của bạn
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+        'headers': {
+            'Authorization': f'Bearer {access_token}',
+        },
+        'force_generic_extractor': True,
     }
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
+            # print(info)
             video_url = info.get('url', None)
             if not video_url:
                 raise ValueError("Could not find video URL.")
@@ -44,22 +58,21 @@ def get_download_url(video_url: str, cookies: str) -> str:
     
     return video_url
 
-@app.post("/get_video_url/")
-def get_video_url(request: VideoRequest, req: Request):
-    cookies_header = req.headers.get('cookies')
-    if not cookies_header:
-        raise HTTPException(status_code=400, detail="No cookies provided")
+@app.get("/")
+def root():
+    auth_url = f"{AUTH_URI}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/youtube.readonly"
+    return auth_url
 
-    download_url = get_download_url(request.video_url, cookies_header)
-    
-    # Thêm thời gian chờ trước khi trả kết quả
-    time.sleep(5)  # Chờ 5 giây trước khi xử lý yêu cầu tiếp theo
+@app.get("/get_video_url")
+def get_video_url(code: str, video_url: str):
+    access_token = get_access_token(code)
+
+    download_url = get_download_url(video_url, access_token)
 
     if download_url:
         return {"download_url": download_url}
     raise HTTPException(status_code=404, detail="Failed to retrieve the video download URL")
 
-# Main block to run the server
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Lấy PORT từ biến môi trường hoặc dùng mặc định là 8000
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    port = int(os.getenv("PORT", 8000))  
+    uvicorn.run(app, host="localhost", port=port)
