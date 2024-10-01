@@ -3,17 +3,42 @@ import uvicorn
 from fastapi import FastAPI, Request
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
+import http.cookiejar
 
 app = FastAPI()
 
 class VideoRequest(BaseModel):
     video_url: str
 
+def save_cookies_from_string(cookies_string: str, cookies_file: str):
+    jar = http.cookiejar.CookieJar()
+    
+    # Phân tách cookies
+    cookies_list = cookies_string.split('; ')
+    for cookie in cookies_list:
+        name, value = cookie.split('=', 1)
+        # Tạo cookie và thêm vào cookiejar
+        jar.set_cookie(http.cookiejar.Cookie(version=0, name=name, value=value,
+                                             port=None, port_specified=False,
+                                             domain='youtube.com', domain_specified=True,
+                                             domain_initial_dot=False, path='/', 
+                                             path_specified=True, secure=False, 
+                                             expires=None, discard=True, comment=None, 
+                                             comment_url=None, rest=None))
+    
+    # Lưu cookies vào tệp
+    with open(cookies_file, 'w') as f:
+        for cookie in jar:
+            f.write(f"{cookie.name}={cookie.value}\n")
+
 def get_download_url(video_url: str, cookies: str) -> str:
+    cookies_file = 'cookies.txt'
+    save_cookies_from_string(cookies, cookies_file)
+
     ydl_opts = {
         'format': 'm4a/bestaudio/best',
         'noplaylist': True,
-        'cookies': cookies,
+        'cookies': cookies_file,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
