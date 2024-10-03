@@ -1,61 +1,78 @@
 import os
 import uvicorn
-from fastapi import FastAPI
+import requests
+from fastapi import FastAPI, HTTPException
 from yt_dlp import YoutubeDL
 from pydantic import BaseModel
 
 app = FastAPI()
 
-class VideoRequest(BaseModel):
-    video_url: str
+from dotenv import load_dotenv
 
-def get_po_token(video_url: str) -> str:
-    ydl_opts_info = {
-        'format': 'best',
-        'noplaylist': True,
-        'quiet': True,
+load_dotenv()
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+AUTH_URI = os.getenv("AUTH_URI")
+TOKEN_URI = os.getenv("TOKEN_URI")
+
+def get_access_token(code: str) -> str:
+    data = {
+        'code': code,
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'redirect_uri': REDIRECT_URI,
+        'grant_type': 'authorization_code',
     }
 
-    with YoutubeDL(ydl_opts_info) as ydl:
-        info = ydl.extract_info(video_url, download=False)
-        po_token = info.get('serviceIntegrityDimensions', {}).get('poToken', None)
+    response = requests.post(TOKEN_URI, data=data)
+    response_data = response.json()
 
-    return po_token
+    if 'access_token' in response_data:
+        return response_data['access_token']
+    
+    raise ValueError("Failed to obtain access token")
 
-def get_download_url(video_url: str) -> str:
-    po_token = get_po_token(video_url)
-
-    print('PO Token:', po_token)
-
-    ydl_opts_download = {
-        'format': 'm4a/bestaudio/best',
-        'noplaylist': True,
+def get_download_url(video_url: str, access_token: str) -> str:
+    print(f'Bearer {access_token}')
+    ydl_opts = {
         'quiet': True,
+        'noplaylist': True,
+        'headers': {
+            'Authorization': f'Bearer {access_token}',
+        },
+        'force_generic_extractor': True,
     }
-
-    if po_token:
-        ydl_opts_download['extractor-args'] = f"youtube:player-client=web,default;po_token=web+{po_token}"
 
     try:
-        with YoutubeDL(ydl_opts_download) as ydl:
+        with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            download_url = info.get('url', None)
-
-            if not download_url:
-                raise ValueError("Could not find download URL.")
+            # print(info)
+            video_url = info.get('url', None)
+            if not video_url:
+                raise ValueError("Could not find video URL.")
     except Exception as e:
-        print(f"Error extracting download URL: {str(e)}")
+        print(f"Error extracting video URL: {str(e)}")  # In thông báo lỗi
         return None
+    
+    return video_url
 
-    return download_url
+@app.get("/")
+def root():
+    auth_url = f"{AUTH_URI}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/youtube.readonly"
+    return auth_url
 
-@app.post("/get_video_url/")
-def get_video_url(request: VideoRequest):
-    download_url = get_download_url(request.video_url)
+@app.get("/get_video_url")
+def get_video_url(code: str, video_url: str):
+    access_token = get_access_token(code)
+
+    download_url = get_download_url(video_url, access_token)
+
     if download_url:
         return {"download_url": download_url}
-    return {"error": "Failed to retrieve the video download URL"}
+    raise HTTPException(status_code=404, detail="Failed to retrieve the video download URL")
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    port = int(os.getenv("PORT", 8000))  
+    uvicorn.run(app, host="localhost", port=port)
