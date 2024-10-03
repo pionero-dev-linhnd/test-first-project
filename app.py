@@ -43,6 +43,8 @@ def get_download_url(video_url: str, access_token: str) -> str:
             'Authorization': f'Bearer {access_token}',
         },
         'force_generic_extractor': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+
     }
 
     try:
